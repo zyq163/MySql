@@ -1,0 +1,561 @@
+约束条件
+
+1. 查看约束条件
+mysql> desc day2.test2;
++-----------+----------+------+-----+---------+-------+
+| Field     | Type     | Null | Key | Default | Extra |
++-----------+----------+------+-----+---------+-------+
+| id        | int(11)  | YES  | MUL | NULL    |       |
+| classroom | char(10) | YES  |     | NULL    |       |
+| name      | char(4)  | YES  |     | NULL    |       |
+| age       | int(11)  | YES  |     | NULL    |       |
++-----------+----------+------+-----+---------+-------+
+
+2. 设置约束条件
+  null      允许为空(默认设置)
+  not null  不允许为null(空)
+  key       键值类型
+  default   设置默认键值,缺省为null
+  extra     额外设置
+例:
+mysql> create table day2.test5( #创建表
+    -> id int(20) not null,
+    -> name char(4) not null,
+    -> class char(12) default "nsd1903"
+    -> );
+mysql> desc day2.test5; #查看表结构
++-------+----------+------+-----+---------+-------+
+| Field | Type     | Null | Key | Default | Extra |
++-------+----------+------+-----+---------+-------+
+| id    | int(20)  | NO   |     | NULL    |       |
+| name  | char(4)  | NO   |     | NULL    |       |
+| class | char(12) | YES  |     | nsd1903 |       |
++-------+----------+------+-----+---------+-------+
+#插入表记录
+mysql> insert into day2.test5(id,name) values(10025,zyq);
+mysql> insert into day2.test5(id,name) values(10026,"bob");
+mysql> insert into day2.test5(id,name) values(10038,"tom");
+mysql> select * from day2.test5; #查看表记录
++-------+------+---------+
+| id    | name | class   |
++-------+------+---------+
+| 10025 | zyq  | nsd1903 |
+| 10026 | bob  | nsd1903 |
+| 10038 | tom  | nsd1903 |
++-------+------+---------+
+
+========================================================
+修改表结构
+
+语法结构
+ 用法: mysql> alter table 库名.表名 执行动作;
+   add    添加字段
+   modify 修改字段类型
+   change 修改字段名
+   drop   删除字段
+   rename 修改表名   
+
+1. 添加新字段
+ 用法: 新字段默认添加在字段末尾
+ mysql> alter table 库名.表名
+    add 字段名 类型(宽度) 约束条件
+    [ after 字段名 | first ];
+例:
+mysql> desc day2.test5; #查看表结构(前)
++-------+----------+------+-----+---------+-------+
+| Field | Type     | Null | Key | Default | Extra |
++-------+----------+------+-----+---------+-------+
+| id    | int(20)  | NO   |     | NULL    |       |
+| name  | char(4)  | NO   |     | NULL    |       |
+| class | char(12) | YES  |     | nsd1903 |       |
++-------+----------+------+-----+---------+-------+
+#添加新字段
+mysql> alter table day2.test5 add email varchar(50);
+mysql> alter table day2.test5 add email2 varchar(50) default "zhaiyanqunA@163.com";
+mysql> desc day2.test5;#查看表结构(后)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | char(4)     | NO   |     | NULL                |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| email  | varchar(50) | YES  |     | NULL                |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+
+2. 修改字段类型
+基本用法: 修改的字段类型不能与已存储的数据冲突
+ mysql> alter table 库名.表名
+        modify 字段名 类型(宽度) 约束条件
+        [ after 字段名 | first ];
+例:
+mysql> desc day2.test5; #查看表结构(修改前)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | char(4)     | NO   |     | NULL                |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| email  | varchar(50) | YES  |     | NULL                |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+mysql> alter table day2.test5 modify name varchar(20) default "zyq"; #修改字段类型
+mysql> desc day2.test5; #查看表结构(修改后)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | varchar(20) | YES  |     | zyq                 |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| email  | varchar(50) | YES  |     | NULL                |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+
+3. 修改字段名
+  基本用法: 也可以用修改字段类型
+mysql> alter table 库名.表名
+       change 源字段名 新子段名 类型(宽度)
+         约束条件;
+例:
+mysql> desc day2.test5; #查看表结构(修改前)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | varchar(20) | YES  |     | zyq                 |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| email  | varchar(50) | YES  |     | NULL                |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+mysql> alter table day2.test5 change email qq varchar(50); #修改字段名
+mysql> desc day2.test5; #查看表结构(修改后)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | varchar(20) | YES  |     | zyq                 |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| qq     | varchar(50) | YES  |     | NULL                |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+
+4. 删除字段
+ 基本用法
+    表中有多条记录时,所有列的此字段的值都会被删除
+mysql> alter table 库名.表名 drop 字段名;
+例:
+mysql> desc day2.test5; #查看表结构(修改前)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | varchar(20) | YES  |     | zyq                 |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| qq     | varchar(50) | YES  |     | NULL                |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+mysql> alter table day2.test5 drop qq; #删除字段qq
+mysql> desc day2.test5;#查看表结构(修改后)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | varchar(20) | YES  |     | zyq                 |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+
+5. 修改表名
+基本用法:
+   表对应的文件名,也被改变
+   表记录不受影响
+例;
+mysql> desc day2.test5; #查看表结构(表名修改前)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | varchar(20) | YES  |     | zyq                 |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+mysql> alter table day2.test5 rename day2.test55; #修改表名
+mysql> desc day2.test55; #查看表结构(表名修改后)
++--------+-------------+------+-----+---------------------+-------+
+| Field  | Type        | Null | Key | Default             | Extra |
++--------+-------------+------+-----+---------------------+-------+
+| id     | int(20)     | NO   |     | NULL                |       |
+| name   | varchar(20) | YES  |     | zyq                 |       |
+| class  | char(12)    | YES  |     | nsd1903             |       |
+| email2 | varchar(50) | YES  |     | zhaiyanqunA@163.com |       |
++--------+-------------+------+-----+---------------------+-------+
+
+========================================================
+MySql键值使用
+
+键值类型
+   根据数据存储要求,选择键值
+   (1) index  普通索引
+   (2)unique   唯一索引
+   (3)fulltext 全文索引
+   (4)primary key  主键
+   (5)foreign key  外键
+
+索引介绍
+   索引是什么
+      类似于书的目录
+      对表中字段值进行排序
+      索引类型包括: Btree B+tree hash
+
+索引优点
+   通过创建唯一性索引,可以保证数据库中每个行数据的唯一性
+   可以加快数据的查询速度
+索引缺点
+   当对表中的数据进行增加 删除和修改的时候,索引也要动态的调整,降低了数据的维护速度
+   索引需要占物理空间
+
+index 普通索引
+ 使用规则
+   一个表可以有多个index字段
+   字段的值允许重复,且可以赋值NULL值
+   通常把做为查询条件的字段设置index字段
+  index字段标志是MUL
+
+1. 建表时创建索引
+index(字段名),index(字段名)
+例:
+mysql> create table day2.test2(
+    -> id int,
+    -> classroom char(10),
+    -> name char(4),
+    -> age int,
+    -> index(id),index(name)
+    -> );
+mysql> desc day2.test2; #查看表结构,带MUL是索引(前)
++-----------+----------+------+-----+---------+-------+
+| Field     | Type     | Null | Key | Default | Extra |
++-----------+----------+------+-----+---------+-------+
+| id        | int(11)  | YES  | MUL | NULL    |       |
+| classroom | char(10) | YES  |     | NULL    |       |
+| name      | char(4)  | YES  | MUL | NULL    |       |
+| age       | int(11)  | YES  |     | NULL    |       |
++-----------+----------+------+-----+---------+-------+
+mysql> show index from day2.test2\G; #查看索引信息
+
+2. 在已有的表里创建索引
+create index 索引名 on 表名(字段名)
+mysql> create index xixi on day2.test2(name); 
+mysql> show index from day2.test2\G; #查看索引信息,这时会多出一个索引
+
+3.删除索引
+drop index 索引名 on 表名;
+mysql> drop index name on day2.test2; #删除索引
+mysql> desc day2.test2; 查看表结构(后)
++-----------+----------+------+-----+---------+-------+
+| Field     | Type     | Null | Key | Default | Extra |
++-----------+----------+------+-----+---------+-------+
+| id        | int(11)  | YES  | MUL | NULL    |       |
+| classroom | char(10) | YES  |     | NULL    |       |
+| name      | char(4)  | YES  |     | NULL    |       |
+| age       | int(11)  | YES  |     | NULL    |       |
++-----------+----------+------+-----+---------+-------+
+
+========================================================
+primary key主键
+
+1. 建表时创建主键
+primary key(字段名)
+例:
+mysql> create table day2.t6(
+    -> name char(3) primary key,
+    -> id int
+    -> );
+
+mysql> desc day2.t6; #查看表结构
++-------+---------+------+-----+---------+-------+
+| Field | Type    | Null | Key | Default | Extra |
++-------+---------+------+-----+---------+-------+
+| name  | char(3) | NO   | PRI | NULL    |       |
+| id    | int(11) | YES  |     | NULL    |       |
++-------+---------+------+-----+---------+-------+
+
+2. 在已有表里添加主键
+alter table 表名 add primary key(字段名列表);
+mysql> desc day2.t1; #查看表结构(前)
++-------+------------+------+-----+---------+-------+
+| Field | Type       | Null | Key | Default | Extra |
++-------+------------+------+-----+---------+-------+
+| name  | char(4)    | YES  |     | NULL    |       |
+| age   | int(11)    | YES  |     | NULL    |       |
+| par   | float(7,2) | YES  |     | NULL    |       |
++-------+------------+------+-----+---------+-------+
+
+mysql> alter table day2.t1 add primary key(name); #添加主键
+
+mysql> desc day2.t1; #查看表结构(后)
++-------+------------+------+-----+---------+-------+
+| Field | Type       | Null | Key | Default | Extra |
++-------+------------+------+-----+---------+-------+
+| name  | char(4)    | NO   | PRI | NULL    |       |
+| age   | int(11)    | YES  |     | NULL    |       |
+| par   | float(7,2) | YES  |     | NULL    |       |
++-------+------------+------+-----+---------+-------+
+
+3. 删除主键
+alter table 表名 drop primary key;
+mysql> desc day2.t1; #查看表结构(前)
++-------+------------+------+-----+---------+-------+
+| Field | Type       | Null | Key | Default | Extra |
++-------+------------+------+-----+---------+-------+
+| name  | char(4)    | NO   | PRI | NULL    |       |
+| age   | int(11)    | YES  |     | NULL    |       |
+| par   | float(7,2) | YES  |     | NULL    |       |
++-------+------------+------+-----+---------+-------+
+mysql> alter table day2.t1 drop primary key; #删除主键
+
+mysql> desc day2.t1; #查看表结构(后)
++-------+------------+------+-----+---------+-------+
+| Field | Type       | Null | Key | Default | Extra |
++-------+------------+------+-----+---------+-------+
+| name  | char(4)    | NO   |     | NULL    |       |
+| age   | int(11)    | YES  |     | NULL    |       |
+| par   | float(7,2) | YES  |     | NULL    |       |
++-------+------------+------+-----+---------+-------+
+
+4. 创建复合主键
+alter table 表名 add primary key(字段名列表)
+例:
+mysql> create table day2.t4(
+    -> name char(10),
+    -> class char(7),
+    -> status enum("yes","no"),
+    -> primary key(name .class)
+    -> );
+
+#插入表记录
+mysql> insert into day2.t4 values( "zhai",123,"yes");
+mysql> insert into day2.t4 values( "zhai",124,"yes");
+mysql> select * from day2.t4; #查看表记录
++------+-------+--------+
+| name | class | status |
++------+-------+--------+
+| zhai | 123   | yes    |
+| zhai | 124   | yes    |
++------+-------+--------+
+2 rows in set (0.01 sec)
+
+5. 与auto_increment连用 #自增长,赋值时,字段的值字段加 1
+mysql> create table day2.t5( id int primary key auto_increment,
+    -> name char(10),
+    -> sex enum("man","woman")
+    -> );
+
+mysql> desc day2.t5; #查看表结构
++-------+---------------------+------+-----+---------+----------------+
+| Field | Type                | Null | Key | Default | Extra          |
++-------+---------------------+------+-----+---------+----------------+
+| id    | int(11)             | NO   | PRI | NULL    | auto_increment |
+| name  | char(10)            | YES  |     | NULL    |                |
+| sex   | enum('man','woman') | YES  |     | NULL    |                |
++-------+---------------------+------+-----+---------+----------------+
+#插入表记录 
+mysql> insert into day2.t5(name,sex) values("bob","man"); (id没给值时,会自动赋值,自增)
+mysql> insert into day2.t5(name,sex) values("zhai","man");
+mysql> insert into day2.t5(name,sex) values("zyq","woman");
+mysql> insert into day2.t5 values(8,"zyq","woman"); #可以手动给id值
+mysql> select * from day2.t5; #查看表记录
++----+------+-------+
+| id | name | sex   |
++----+------+-------+
+|  1 | bob  | man   |
+|  2 | bob  | man   |
+|  3 | zhai | man   |
+|  4 | zyq  | woman |
+|  8 | zyq  | woman |
++----+------+-------+
+
+mysql> delete from day2.t5; #删除表记录
+mysql> insert into day2.t5(name,sex) values("bob","man"); #插入表记录
+以上次的表id最大的为自增加1
+mysql> select * from day2.t5; #查看表记录(前)
++----+------+------+
+| id | name | sex  |
++----+------+------+
+|  9 | bob  | man  |
++----+------+------+
+#可以手动给id值
+mysql> insert into day2.t5 values(1,"bobb","man"); #插入表记录
+mysql> select * from day2.t5; #查看表记录(后)
++----+------+------+
+| id | name | sex  |
++----+------+------+
+|  1 | bobb | man  |
+|  9 | bob  | man  |
++----+------+------+
+
+先删除自增,在删除主键
+mysql> desc day2.t5; #查看表结构(前)
++-------+---------------------+------+-----+---------+----------------+
+| Field | Type                | Null | Key | Default | Extra          |
++-------+---------------------+------+-----+---------+----------------+
+| id    | int(11)             | NO   | PRI | NULL    | auto_increment |
+| name  | char(10)            | YES  |     | NULL    |                |
+| sex   | enum('man','woman') | YES  |     | NULL    |                |
++-------+---------------------+------+-----+---------+----------------+
+mysql> alter table day2.t5 modify id int; #删除自增
+mysql> desc day2.t5;#查看表结构
++-------+---------------------+------+-----+---------+-------+
+| Field | Type                | Null | Key | Default | Extra |
++-------+---------------------+------+-----+---------+-------+
+| id    | int(11)             | NO   | PRI | NULL    |       |
+| name  | char(10)            | YES  |     | NULL    |       |
+| sex   | enum('man','woman') | YES  |     | NULL    |       |
++-------+---------------------+------+-----+---------+-------+
+mysql> alter table day2.t5 drop primary key; #删除主键
+mysql> desc day2.t5;#查看表结构(后)
++-------+---------------------+------+-----+---------+-------+
+| Field | Type                | Null | Key | Default | Extra |
++-------+---------------------+------+-----+---------+-------+
+| id    | int(11)             | NO   |     | NULL    |       |
+| name  | char(10)            | YES  |     | NULL    |       |
+| sex   | enum('man','woman') | YES  |     | NULL    |       |
++-------+---------------------+------+-----+---------+-------+
+
+========================================================
+foreign key外键
+
+外键功能(作用)
+  限制给字段赋值,插入记录时,字段之在另一个表字段值范围内选择.
+
+使用规则
+  表存储引擎必须是innodb
+  字段类型要一致
+  被参照字段必须要是索引类型的一种(primary key)
+
+1. 创建外键
+create table 表名(
+ 字段名列表,
+ foreign key(字段名) references 表名(字段名) #指定外键
+  on update cascade #同步更新
+  on delete cascade #同步删除
+) engine=innodb;    #指定存储引擎
+例:
+#创建员工表
+mysql> create table day2.yg(
+    -> yg_id int primary key auto_increment, 
+    -> name char(10))engine=innodb;
+#插入表记录
+mysql> insert into day2.yg(name) values("zhai");
+mysql> insert into day2.yg(name) values("yan");
+mysql> insert into day2.yg(name) values("quan");
+mysql> select * from day2.yg; #查看表记录
++-------+------+
+| yg_id | name |
++-------+------+
+|     1 | zhai |
+|     2 | yan  |
+|     3 | quan |
++-------+------+
+#创建外键
+mysql> create table day2.gz(
+    -> gz_id int,
+    -> pay float(7,2),
+    -> foreign key(gz_id) references day2.yg(yg_id)
+    -> on update cascade 
+    -> on delete cascade
+    -> );
+mysql> desc day2.gz; #查看表结构
++-------+------------+------+-----+---------+-------+
+| Field | Type       | Null | Key | Default | Extra |
++-------+------------+------+-----+---------+-------+
+| gz_id | int(11)    | YES  | MUL | NULL    |       |
+| pay   | float(7,2) | YES  |     | NULL    |       |
++-------+------------+------+-----+---------+-------+
+mysql> show create table day2.gz\G; #查看创建表的命令,\G竖着显示
+mysql> insert into day2.gz values(4,35000); #会报错,没有id号为4
+#插入表记录
+mysql> insert into day2.gz values(1,35000);
+mysql> insert into day2.gz values(2,50000);
+mysql> insert into day2.gz values(3,50000);
+mysql> select * from day2.gz; #查看表记录
++-------+----------+
+| gz_id | pay|
++-------+----------+
+|     1 | 35000.00 |
+|     2 | 50000.00 |
+|     3 | 50000.00 |
+
+2. 同步更新
+mysql> select * from day2.yg;  #查看表记录(前)
++-------+------+
+| yg_id | name |
++-------+------+
+|     1 | zhai |
+|     2 | yan  |
+|     3 | quan |
+
+mysql> select * from day2.gz; #查看表记录(前)
++-------+----------+
+| gz_id | pay|
++-------+----------+
+|     1 | 35000.00 |  
+|     2 | 50000.00 |
+|     3 | 50000.00 |
++-------+----------+
+mysql> update day2.yg set yg_id=4 where yg_id=3; #修改同步更新
+mysql> select * from day2.yg; #查看表记录(后)
++-------+------+
+| yg_id | name |
++-------+------+
+|     1 | zhai |
+|     2 | yan  |
+|     4 | quan |
++-------+------+
+mysql> select * from day2.gz; #查看表记录(后)
++-------+----------+
+| gz_id | pay  |
++-------+----------+
+|     1 | 35000.00 |
+|     2 | 50000.00 |
+|     4 | 50000.00 |
++-------+----------+
+
+3. 删除同步
+mysql> select * from day2.yg; #查看表记录(前)                                              
++-------+------+
+| yg_id | name |
++-------+------+
+|     1 | zhai |
+|     2 | yan  |
+|     4 | quan |
++-------+------+
+mysql> select * from day2.gz; #查看表记录(前)
++-------+----------+
+| gz_id | pay  |
++-------+----------+
+|     1 | 35000.00 |
+|     2 | 50000.00 |
+|     4 | 50000.00 |
++-------+----------+
+mysql> delete from day2.yg where yg_id=1; #同步删除
+mysql> select * from day2.yg; #查看表记录(后)
++-------+------+
+| yg_id | name |
++-------+------+
+|     2 | yan  |
+|     4 | quan |
++-------+------+
+mysql> select * from day2.gz; #查看表记录(后)
++-------+----------+
+| gz_id | pay  |
++-------+----------+
+|     2 | 45000.00 |
+|     4 | 50000.00 |
++-------+----------+
+
+4. 删除外键
+alter table 表名 drop foreign key 外键名;
+mysql> show create table day2.gz\G; #查看创建表的命令,\G竖着显示
+  CONSTRAINT `gz_ibfk_1` FOREIGN KEY (`gz_id`) REFERENCES `yg` (`yg_id`) ON DELETE CASCADE ON UPDATE CASCADE
+mysql> alter table day2.gz drop foreign key gz_ibfk_1; #删除外键
+
