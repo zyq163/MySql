@@ -1,0 +1,444 @@
+搜索路径
+
+查看搜索路径
+  安装服务时已自动创建
+mysql> show variables like "secure_file_priv"; #查看
++------------------+-----------------------+
+| Variable_name    | Value                 |
++------------------+-----------------------+
+| secure_file_priv | /var/lib/mysql-files/ |
++------------------+-----------------------+
+
+1. 修改搜索路径
+  操作步骤
+    创建目录并修改所有者
+    修改主配置文件
+    重启服务 
+[root@centos ~]# mkdir /myfile
+[root@centos ~]# chown mysql /myfile
+[root@centos ~]# vim /etc/my.cnf
+[mysqld]
+secure_file_priv="/myfile"
+#重启动服务
+[root@centos ~]# systemctl restart mysqld
+[root@centos ~]# systemctl enable mysqld
+
+mysql> show variables like "secure_file_priv"; #查看
++------------------+----------+
+| Variable_name    | Value    |
++------------------+----------+
+| secure_file_priv | /myfile/ |
++------------------+----------+
+
+mysql> show variables like "%file%"; #查看所有
+
+================================================================
+数据导入
+
+命令格式
+  数据导入步骤
+     默认只有root用户有数据导入权限
+     建表
+     导入数据
+
+命令格式
+  mysql> load data infile "目录名/文件名"
+  into table 库名.表名
+  fields terminated by "分隔符"
+  lines terminated by "\n"
+
+注意事项
+  具体如下:
+    字段分隔符要与文件一致
+    表字段类型和字段个数要与文件匹配
+    导入数据时指定文件的绝对路径
+
+mysql> create database day3; #建库day3
+mysql> create table day3.user( #建表user
+    -> name char(50),
+    -> password char(1),
+    -> uid int,
+    -> gid int,
+    -> comment char(150),
+    -> homedir char(50),
+    -> shell char(50)
+    -> );
+
+mysql> desc day3.user; #查看表结构
++----------+-----------+------+-----+---------+-------+
+| Field    | Type      | Null | Key | Default | Extra |
++----------+-----------+------+-----+---------+-------+
+| name     | char(50)  | YES  |     | NULL    |       |
+| password | char(1)   | YES  |     | NULL    |       |
+| uid      | int(11)   | YES  |     | NULL    |       |
+| gid      | int(11)   | YES  |     | NULL    |       |
+| comment  | char(150) | YES  |     | NULL    |       |
+| homedir  | char(50)  | YES  |     | NULL    |       |
+| shell    | char(50)  | YES  |     | NULL    |       |
++----------+-----------+------+-----+---------+-------+
+
+1. 命令格式
+  mysql> load data infile "目录名/文件名"
+  into table 库名.表名
+  fields terminated by "分隔符"
+   lines terminated by "\n"
+例:
+[root@centos ~]# cp  /etc/passwd /myfile
+mysql> load data infile "/myfile/passwd" #导入数据
+    -> into table day3.user
+    -> fields terminated by ":"
+    -> lines terminated by "\n";
+
+mysql> select * from day3.user; #查看表记录
+mysql> alter table day3.user add id int primary key auto_increment first; #添加新字段
+
+================================================================
+数据导出
+
+注意事项
+  具体如下:
+    导出数据行数由SQL查询决定
+    导出的是表记录,不包括字段名
+    自动创建存储数据的文件.
+    存储数据文件,具有唯一性.
+
+命令格式
+ 格式1
+    mysql> select命令 into outfile "目录名/文件名"
+例:
+mysql> select * from day3.user into outfile "/myfile/user1.txt";
+
+ 格式2
+    mysql> select命令 into outfile "目录名/文件名"
+    fields terminated by "分隔符";
+例:
+mysql> select * from day3.user where id<=5 into outfile "/myfile/user2.txt"
+    -> fields terminated by "%%%%%%";
+
+ 格式3
+    mysql> select命令 into outfile "目录名/文件名"
+    fields terminated by "分隔符"
+    lines terminated by "\n";
+例:
+mysql> select name,uid,gid from day3.user where id<=8 into outfile "/myfile/user3.txt"
+    -> fields terminated by "@@@@"
+    -> lines terminated by "\n";
+
+#查看导出内容
+[root@centos ~]# cat /myfile/user1.txt 
+1	root	x	0	0	root	/root	/bin/bash
+2	bin	x	1	1	bin	/bin	/sbin/nologin
+3	daemon	x	2	2	daemon	/sbin	/sbin/nologin
+[root@centos ~]# cat /myfile/user2.txt
+1%%%%%%root%%%%%%x%%%%%%0%%%%%%0%%%%%%root%%%%%%/root%%%%%%/bin/bash
+2%%%%%%bin%%%%%%x%%%%%%1%%%%%%1%%%%%%bin%%%%%%/bin%%%%%%/sbin/nologin
+3%%%%%%daemon%%%%%%x%%%%%%2%%%%%%2%%%%%%daemon%%%%%%/sbin%%%%%%/sbin/nologin
+4%%%%%%adm%%%%%%x%%%%%%3%%%%%%4%%%%%%adm%%%%%%/var/adm%%%%%%/sbin/nologin
+5%%%%%%lp%%%%%%x%%%%%%4%%%%%%7%%%%%%lp%%%%%%/var/spool/lpd%%%%%%/sbin/nologin
+[root@centos ~]# cat /myfile/user3.txt 
+root@@@@0@@@@0
+bin@@@@1@@@@1
+daemon@@@@2@@@@2
+adm@@@@3@@@@4
+lp@@@@4@@@@7
+sync@@@@5@@@@0
+shutdown@@@@6@@@@0
+halt@@@@7@@@@0
+
+================================================================
+增加表记录
+
+注意事项
+  具体如下
+    字段值要与字段类型相匹配。
+    字符类型的字段，要用""号括起来.
+    依次给所有字段赋值时，字段名可以省略
+    只给部分字段赋值时，必须明确写出对应的字段名称。
+    没有赋值的字段使用默认值或自增长赋值。
+
+语法格式
+  格式1: 添加1条记录,给所有字段赋值
+  insert into 表名 values (字段值列表)
+例:
+mysql> insert into day3.user values(22,"zhai","x",2002,2030,"fasfl","yyef","fdsaa");
+
+  格式2: 添加N条记录,给所有字段赋值
+  insert into 表名
+  values
+  (字段值列表),(字段值列表),(字段值列表);
+例:
+mysql> insert into day3.user
+    -> values
+    -> (24,"bob","x",2004,2050,"halt","/root","/sbin/nologin"),
+    -> (25,"tom","x",2005,2051,"halt","/root","/sbin/nologin"),
+    -> (26,"xixi","x",2006,2052,"halt","/root","/sbin/nologin");
+   
+   格式3: 添加1条记录,给指定字段赋值
+   insert into 表名(字段值列表) values(字段值列表) 
+    values
+     (字段值列表), #第1条记录
+     (字段值列表), #第3条记录
+     (字段值列表);  #第3条记录
+例:
+mysql> insert into day3.user(id,name,uid)
+    -> values
+    -> (27,"zyq",110),
+    -> (28,"used",120),
+    -> (29,"student01",130);
+
+================================================================
+查询表记录
+
+注意事项
+ 要求如下
+   *表示所有字段
+   查看当前库表记录是库名可以省
+   字段列表决定显示列个数
+   条件决定显示行的个数
+
+格式1 查看所有记录
+  select 字段1, .. ..,字段N from 库名.表名;
+例:
+mysql> select * from day3.user;
+mysql> select id,name,uid,gid  from day3.user;
+
+格式2 条件查询
+ select 字段1, .. ..,字段N from 库名.表名
+ where 条件表达式;
+例:
+mysql> select id,name,uid,gid from day3.user where id<=5;
++----+--------+------+------+
+| id | name   | uid  | gid  |
++----+--------+------+------+
+|  1 | root   |    0 |    0 |
+|  2 | bin    |    1 |    1 |
+|  3 | daemon |    2 |    2 |
+|  4 | adm    |    3 |    4 |
+|  5 | lp     |    4 |    7 |
++----+--------+------+------+
+
+================================================================
+更新表记录
+
+注意事项
+ 具体如下: 
+   字段值要与字段类型相匹配
+   对于字符类型的字段,值要用双引号括起来
+   若不使用where限定条件,会更新有所有记录字段值
+   限定条件时,只更新匹配条件的记录的字段值
+
+语法格式
+  格式1,批量更新
+  update 库名.表名
+  set 字段名=值,字段名=值,字段名=值,....;
+例:
+mysql> update day3.user 
+    -> set password="A",comment="student user"; #更新password字段值和comment字段值所有记录
+
+   格式2,条件匹配更新
+   update 库名.表名
+   set 字段名=值,字段名=值,字段名=值,....
+   where 条件表达式;
+例:
+mysql> update day3.user set password="x" where name="root"; #只更新root用户的password值
+
+================================================================
+删除表记录
+
+注意事项: 不加条件删除表中的所有行
+
+格式1，条件匹配删除
+ delete from 库名.表名 where 条件表达式;
+例:
+mysql> delete from day3.user where id=29; #删除id=29的行			
+	
+格式2，删除所有记录
+ delete from 库名.表名;
+例:
+mysql> delete from day3.user;
+
+================================================================
+基本匹配条件
+
+1. 数值比较
+字段必须是数值类型
+类型      比较           例子
+=        相等           id=3
+>        大于           uid>3
+>=      大于或等于     uid>=3
+<        小于           uid<3
+<=      小于或等于     uid<=3
+!=      不相等          uid!=3
+例:
+mysql> select * from day3.user where id=3;     #查询id=3的行
+mysql> select * from day3.user where uid>80;   #查询uid>80的行
+mysql> select * from day3.user where uid>=100;  
+mysql> select * from day3.user where uid<100;
+mysql> select * from day3.user where uid<=100;
+mysql> select * from day3.user where uid!=3;
+
+2. 字符比较/匹配空/非空
+字段必须是字符类型
+类型            比较      例子
+=              相等       name="root"
+!=             不相等     name!="root"
+is null      空        shell is null
+is not null  非空      shel is not null
+例:
+mysql> select * from day3.user where name="root"; 
+mysql> select * from day3.user where name!="root";
+mysql> select * from day3.user where shell is null;
+mysql> select * from day3.user where shell is not null;
+
+3. 逻辑匹配
+多个判断条件时使用
+类型      用途        格式
+or      逻辑或      条件1 and 条件2 and 条件3
+and     逻辑与      条件1 or 条件2 or 条件3
+!或not  逻辑非
+()        提高优先级   (uid+gid)/2
+例:
+mysql> select name,id,uid,gid from day3.user where
+    -> name="root" and shell="/bin/bash" and id=1; #3个条件都有满足
+mysql> select id,name,uid,gid,age from day3.user where #匹配的条件显示
+    -> name="root" or shell="/sbin/nologin" or id=8; 
+
+4. 范围内匹配/去重显示
+匹配范围内的任意一个值即可
+类型                        比较
+in(值列表)             在...里...
+not in(值列表)         不在...里...
+between 数字 and 数字   在...之间...
+distinct 字段名          去重显示
+例:
+mysql> select name from day3.user where name in ("bob","zhai","yan"); #查找括号里的用户
+mysql> select id,name,uid from day3.user where id in(3,8,9,2,6,4);    #查找id号为括号里的用户
+mysql> select name from day3.user where name not in ("bob","zhai","yan"); #查找不在括号里的用户
+mysql> select id,name,uid from day3.user where id between 10 and 20;      #查找id号10到20的用户
+mysql> select distinct shell from day3.user;  
+mysql> select distinct shell from day3.user where uid>=100; #查找id号大于等于100的用户
+
+================================================================
+高级匹配条件
+  
+1. 模糊匹配
+用法
+where 字段名 like ' 通配字串 '
+_表示1个字符
+%表示0~n个字符
+实例
+ 列出name值"4个字符"的记录
+例:
+mysql> select name from day3.user where name like "___"; #4个_表示显示name字段为4个字母的名称
+mysql> select name from day3.user where name like "_%_"; #显示所有
+mysql> select name from day3.user where name like "%a%"; #查找包含a的名字
+mysql> select name from day3.user where name like "a%";  #查找以a开头的名字
+
+2. 正则匹配
+用法
+where 字段名 regexp ' 正则表达式‘
+正则元字符 ^ $ . [ ] * |
+示例
+列出 name 值“以 J 开头或以 Y 结尾”的记录
+例:
+mysql> select name from day3.user where name regexp '^r|y$'; #匹配以r开头或以用结尾
+mysql> select * from day3.user where name regexp "^r.*t"; #匹配以r开头以用结尾的行
+mysql> select name,uid from day3.user where name regexp '[0-9]'; #匹配为数字name
+mysql> select name,uid from day3.user where uid regexp  '^...$'; #匹配uid为3位的记录
+
+3. 四则运算
+运算操作
+字段必须是数值类型
+类 型   用 途          例子
++      加法            uid+gid
+-       减法            uid-gid
+*       乘法            uid*gid
+/       除法            uid/gid
+%       取余数(求模)    uid%gid
+()      提高优先级      (uig+gid)/2
+例:
+mysql> select name,id,uid+gid zh from day3.user where name="bin"; #计算用户bin
+mysql> select name,id,uid+gid zh from day3.user; #计算所有用户
+mysql> select name,uid,gid,(uid+gid)/2 pjz from day3.user; #计算所有用户平均值
+mysql> update day3.user set gid=gid+1; #gid字段记录加1
+
+================================================================
+操作查询结果
+
+1. 聚集函数（对字段的值做统计，字段的类型要求是数值类型）
+count(字段名）  #统计字段值的个数
+sum(字段名）    #求和
+max(字段名）    #输出字段值的最大值
+min(字段名）    #输出字段值的最小值
+avg(字段名）    #输出字段值的平均值
+例:
+mysql> select avg(uid) from day3.user; #输出字段值的平均值
+mysql> select sum(uid) from day3.user; #求和
+mysql> select min(uid) from day3.user; #输出字段值的最小值
+mysql> select max(uid) from day3.user; #输出字段值的最大值
+mysql> select count(*) from day3.user; #统计字段值的个数
+
+2. 查询结果排序
+用法
+sql查询  order  by  字段名  [asc|desc];
+asc   升序排序
+desc  降序排序
+例:
+mysql> select name,uid from day3.user where uid>=10 and uid <=500 order by uid;      #没指定默认升序排序
+mysql> select name,uid from day3.user where uid>=10 and uid <=500 order by uid desc; #降序排序
+
+3. 查询结果分组
+ 用法
+  sql查询  group by 字段名;
+例;
+mysql> select shell from day3.user group by shell; #shell分组
+mysql> select gid from day3.user group by gid;     #gid分组
+
+4. 查询结果过滤
+having用法
+sql查询  having 条件表达式;
+例:
+mysql> select name from day3.user having name="root";              #在所有行查询root用户
+mysql> select name from day3.user where id<=20 having name="root"; #在前20行查询root用户
+
+5. 限制查询显示行数(默认显示所有查询的记录)
+sql查询  limit  数字；          #显示查询结果的前几行
+sql查询  limit  数字1，数字2； #显示查询结果指定范围的行
+数字1 起始行(0表示第1行)
+数字2 综行数
+例:
+mysql> select name,id,uid,gid from day3.user limit 3;   #显示查询结果的前3行
+mysql> select name,id,uid,gid from day3.user limit 3,3; #显示第4行到第6行,右3表示3行 
++------+----+------+------+
+| name | id | uid  | gid|
++------+----+------+------+
+| adm  |  4 |    3 |  4 |
+| lp   |  5 |    4 |  7 |
+| sync |  6 |    5 |  0 |
++------+----+------+------+
+
+================================================================
+MySql管理工具
+
+将phpMyAdmin-2.11.11-all-languages.tar.gz包拷贝到虚拟机192.168.4.50
+在192.168.4.50 上安装图形软件phpMyAdmin
+	# yum  -y  install  httpd  php  php-mysql
+	# systemctl start httpd 
+	# systemctl  enabled  httpd 
+
+	# tar  -zxvf  phpMyAdmin-2.11.11-all-languages.tar.gz
+	# mv  phpMyAdmin-2.11.11-all-languages  /var/www/html/phpmyadmin
+
+	# cd /var/www/html/phpmyadmin/
+	# cp  config.sample.inc.php   config.inc.php  //创建主配置文件
+
+	# vim  config.inc.php
+	17   $cfg[‘blowfish_secret’] = ‘plj123’;  //cookies参数
+	31   $cfg[‘Servers’][$i][‘host’] = ‘localhost’; //数据库服务器IP地址
+	
+	访问软件管理数据库服务
+	http://192.168.4.50/phpmyadmin
+	用户名 root
+	密  码  
+
+
