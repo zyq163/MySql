@@ -1,0 +1,276 @@
+MySql读写分离
+
+MySQL读写分离
+主从复制的应用局限性?
+   把客户端访问时的查询求和写请求分别的数据库服务处理
+如何分离MySQ读、写流量?
+   减轻主服务器工作压力,提高从服务器硬件利用率
+   在客户端区分，还是在服务器端区分?
+   程序实现       程序员写代码实现
+   部署服务实现   在服务器部署数据读写分离服务
+
+读写分离的原理
+由MySQ代理面向客户端提供服务
+   收到SQ写请求时，交给 master服务器处理
+   收到SQL读请求时，交给 slave服务器处理
+
+====================================================
+构建读写分离
+
+实现MySql读写分离
+1.搭建一主一从结构
+2.配置maxscale代理服务器
+3.测试配置
+
+构建思路
+1)部署 MySQL一主一从结构
+   主服务器192168451
+   从服务器192168452
+2)部署MySQ代理服务器
+   装包、修改配置文件、启动服务
+3)测试配置
+   客户端连接代理服务访问数据
+
+1. 部署 maxscale服务
+MaxScale代理软件
+由MySQL的兄弟公司MariadB开发
+下载地址
+https://downloads.mariadb.com/files/Maxscale
+[root@pxysvr -l# rpm -ivh maxscale-212-1.hel.7.x86_64.rpm
+[root@cenos57 /]# rpm -ql maxscale #查看安装路径
+
+
+2. 部署 maxscale服务
+修改配置/etc/maxscale.cnf
+[root@cenos57 /]# vim /etc/maxscale.cnf
+[maxscale]
+threads=auto #进程数,auto是根据cpu核数开启进程数
+[serverl]    #定义数据库服务器主机名
+type=server
+address=192.168.4.51 #master主机ip地址
+port=3306
+protocol=My SQLBackend
+
+[servere2]           #定义数据库服务器
+type=server
+address=192168.4.52  #lave主机jp地址
+port=3306
+protocol=My SQLBackend
+
+[MySQL Monitor] #定义要监视的数据库节点
+type=monitor
+module=mysqlmon
+servers=server1,server2 #主、从数据库的主机名,监视server1和server2谁是主,谁是从
+user=maxscalemon        #链接数据库用户名
+passwd=123qq...a57      #链接数据库密码
+monitor_interval=10000
+
+#[Read-Only Service]
+#type=service
+#router=readconnroute
+#servers=server1
+#user=myuser
+#passwd=mypwd
+#router_options=slave
+
+[Read-Write Service]    #定义读写分离的数据库节点
+type=service
+router=readwritesplit
+servers=server1,server2 #主、从数据库的主机名
+user=maxscalemysql
+passwd=123qq...a57
+max_slave_connections=100%
+
+#[Read-Only Listener]
+#type=listener
+#service=Read-Only Service
+#protocol=MySQLClient
+#port=4008
+
+[Read-Write Listener]
+type=listener
+service=Read-Write Service
+protocol=MySQLClient
+port=4006  #写端口
+
+[MaxAdmin Listener] 
+type=listener
+service=MaxAdmin Service
+protocol=maxscaled
+socket=default
+port=4016  #读端口
+
+
+3. 在主、从数据库服务器创建授权用户
+mysql> grant replication slave,replication client on *.* to scalemon@"%" identified by "123qqq…A"; #创建监控用户
+mysql> grant select on mysql.* to maxscale@"%" identified by "123qq...A";                          #创建路由用户
+例:
+51主服务
+mysql> grant replication slave,replication client on *.* to maxscalemon@"%" identified by "123qq...a57";
+mysql> grant select on mysql.* to maxscalemysql@"%" identified by "123qq...a57";
+在52从服务查看
+mysql> select host,user from mysql.user;
+
+4. 启动服务
+主要操作:
+   启动服务、查看端口、停止服务
+[# maxscale -f /etc/maxscale.cnf  
+[root@cenos57 ~]# ps -C maxscale #查看进程
+  PID TTY          TIME CMD
+23201 ?        00:00:08 maxscale
+[root@cenos57 ~]# killall -9 maxscale #杀死进程
+[root@cenos57 ~]# maxscale -f /etc/maxscale.cnf  #再重启服务
+[root@cenos57 ~]# netstat -utnlp | grep maxcale #查看端口是否开启存在
+tcp6       0      0 :::4006                 :::*                    LISTEN      23518/maxscale      
+tcp6       0      0 :::4016                 :::*                    LISTEN      23518/maxscale 
+
+5. 测试配置
+1)在代理服务器本机访问管理
+]# maxadmin -uadmin -pmariadb -P端口
+例:
+[root@cenos57 ~]# maxadmin -uadmin -pmariadb -P4016
+MaxScale> list servers
+Servers.
+-------------------+-----------------+-------+-------------+--------------------+--------------------+--------------------
+Server             | Address         | Port  | Connections | Status              
+-------------------+-----------------+-------+-------------+--------------------+--------------------+--------------------
+server1            | 192.168.4.51    |  3306 |           0 | Master, Running
+server2            | 192.168.4.52    |  3306 |           0 | Slave, Running
+-------------------+-----------------+-------+-------------+--------------------+--------------------+--------------------
+
+2)客户端连接代理访问数据
+]#mysq -h服务器地址 -P端口 -u用户名 -p密码
+例:
+在51主服务器
+mysql> grant select,insert on day3.* to zhangsan@"%" identified by "123qq...zs"; #授权用户shangsan
+在52从服务器查看zhangsan用户
+mysql> select host,user from mysql.user;
++-----------+---------------+-----------------+
+| host      | user          |
++-----------+---------------+-----------------+
+| %         | maxscalemon   |
+| %         | maxscalemysql |
+| %         | repluse       |
+| %         | repluser      |
+| %         | zhangsan      |
+| %         | zyq           |
+| localhost | mysql.sys     |
+| localhost | root          |
++-----------+---------------+-----------------+
+在客户端50进入测试
+[root@cenos50 ~]# mysql -h192.168.4.57 -P4006 -uzhangsan -p123qq...zs #P(大写)表示端口,p(小写)表示密码 
+mysql> select * from day3.user;
+
+======================================================================
+MySql多实例
+
+什么是多实例
+    在一台物理主机上运行多个数据库服务
+为什么要使用多实例
+   节约运维成本
+   提高硬件利用率
+
+配置MySQL多实例
+1.在主机192.168.4.56上，配置第1个MySQL实例
+   实例名称 mysqld1、端口3307
+   数据库目录/data3307、pd文件 mysql1。pid
+   错误日志mysq1.err
+2在主机192.168.4.56上，配置第2个MSQ实例
+   实例名称 mysqld2、端口3308
+   数据库目录/data3308、pid文件mysq2pid
+   错误日志mysq2.err
+
+
+1. 配置多实例
+具体操作
+  解压软件
+  修改目录名
+]#tar -zxvf mysql-5.7.20-linux-glibc212-86_64.tar.gz
+]#mv mysql-5.7.20-linux-glibc2.12-86_64 /usr/local/mysql
+例:
+[root@cen056 ~]# tar -zxvf /mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
+[root@cen056 ~]# mv mysql-5.7.20-linux-glibc2.12-x86_64 /usr/local/mysql
+
+配置文件
+主配置文件/etc/my.cnf
+   每个实例要有独立的数据库目录和监听端口号
+   每个实例要有独立的实例名称和独立的Ock文件
+]#/etc/my.cnf
+[mysqld_multi]  #启用多实例
+mysqld=/usr/local/mysql/bin/mysqld_safe    #指定进程文件路径
+mysqladmin=/usr/local/mysql/bin/mysqladmin  #指定管理命令路径
+user=root  #指定进程用户
+[mysqldX]  #实例进程名称X表示实例编号,如[mysql2]
+port=3307  #端口号
+datadir=/data3307 #数据库目录,要手动创建
+socket=/data3307/mysql.sock   #指定sock文件的路径和名称
+pid-file=/data3307/mysqld.pid #进程pid号文件位置
+log-error=/data3307/mysqlderr #错误日志位置
+例:
+[root@cen056 ~]# vim /etc/my.cnf
+[mysqld_multi]  #启用多实例
+mysqld=/usr/local/mysql/bin/mysqld_safe     #指定进程文件路径
+mysqladmin=/usr/local/mysql/bin/mysqladmin #指定管理命令路径
+user=root  #指定进程用户
+[mysqld1]  #实例进程名称X表示实例编号
+port=3307  #端口号
+datadir=/dir1                 #数据库目录,要手动创建
+log-error=/dir1/mysql1.error  #错误日志位置
+pid-file=/dir1/mysqld1.pid     #进程pid号文件位置
+socket=/dir1/mysqld1.socket    #指定sock文件的路径和名称
+[mysqld2]  #实例进程名称X表示实例编号
+port=3308  #端口号
+datadir=/dir2                  #数据库目录,要手动创建
+log-error=/dir2/mysqld2.error  #错误日志位置
+pid-file=/dir2/mysqld2.pid     #进程pid号文件位置
+socket=/dir1/mysqld2.socket    #指定sock文件的路径和名称
+[root@cen056 ~]# mkdir -p /dir1 /dir2 #创建指定的文件夹
+
+
+2. 管理多实例
+启动服务
+停止服务
+]# /usr/local/mysq/bin/mysqld_multi start  实例编号  #动服务
+]# /usr/local/mysql/bin/mysqld_multi --user=root --password=密码 stop 实例编号  #停止服务
+例:
+[root@cen056 ~]# /usr/local/mysql/bin/mysqld_multi start 1 #1表示server1,如果是2表示server2
+-bash: /usr/local/mysq/bin/mysqld_multi: 没有那个文件或目录
+[root@cen056 ~]# echo $PATH 
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+[root@cen056 ~]# PATH=/usr/local/mysql/bin:$PATH #当前有效
+[root@cen056 ~]# echo "export PATH=/usr/local/mysql/bin:$PATH" >> /etc/bashrc #永久生效
+[root@cen056 ~]# yum list | grep libaio #显示要安装的包
+[root@cen056 ~]# yum -y install libaio* 
+[root@cen056 ~]# mysqld_multi start 1
+........
+2019-06-17T12:35:28.455917Z 1 [Note] A temporary password is generated for root@localhost: 2/k-0a-O+ucR #2/k-0a-O+ucR是登录密码
+[root@cen056 ~]# mysqld_multi start 2
+.......
+2019-06-17T12:36:31.998375Z 1 [Note] A temporary password is generated for root@localhost: yUNl9+*y!.Ka  #yUNl9+*y!.Ka是初开始登录密码
+[root@cen056 ~]# ls /dir1 #查看生成文件
+[root@cen056 ~]# ls /dir1 #查看生成文件
+[root@cen056 ~]# mysqld_multi --user=root --password="123qq...A56" stop 1  #停止服务1
+[root@cen056 ~]# netstat -utnpla | grep mysqld
+tcp6       0      0 :::3308                 :::*                    LISTEN      24468/mysqld 
+
+
+3. 客户端访问
+本机连接
+   使用初始密码连接
+   修改本机登陆密码
+   连接实例
+]#/c/local/mysql/bin/mysql -uroot -p切始密码 -S sock文件
+mysql> alter user root@"localhost" identified by "新密码";
+例:
+[root@cen056 ~]# mysql -uroot -p"t>bkep.kU7ou"
+mysql: [Warning] Using a password on the command line interface can be insecure.
+ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/tmp/mysql.sock' (2) #报错
+[root@cen056 ~]# mysql -uroot -p'2/k-0a-O+ucR' -S /dir1/mysqld1.socket #使用初始密码连接(dir1)
+mysql> alter user root@"localhost" identified by "123qq...A56";        #修改本机登陆密码(dir1)
+[root@cen056 ~]# mysql -uroot -p'yUNl9+*y!.Ka' -S /dir2/mysqld2.socket #使用初始密码连接(dir2)
+mysql> alter user root@"localhost" identified by "123qq...562";        #使用初始密码连接(dir2)
+[root@cen056 ~]# netstat -utnlp  | grep  mysqld #查看端口
+tcp6       0      0 :::3307                 :::*                    LISTEN      24276/mysqld        
+tcp6       0      0 :::3308                 :::*                    LISTEN      24468/mysqld 
+
+
