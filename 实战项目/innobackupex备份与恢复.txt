@@ -1,0 +1,197 @@
+MySQL备份工具(percona软件)
+
+常用的 MySQL备份工具
+
+物理备份缺点
+   跨平台性差
+   备份时间长、冗余备份、浪费存储空间
+mysqldump备份缺点
+   效率较低、备份和还原速度慢、锁表
+   备份过程中，数据插入和更新操作被阻塞
+
+XtraBackup工具?
+   款强大的在线热备份工具
+   备份过程中不锁库表，适合生产环境
+   由专业组织 Percona提供(改进MySQ分支)
+主要含两个组件
+  xtrabackup：C程序，支持 InnoDB/XtraDB
+  innobackupex：以Per脚本封装xtrabackup,还支持 MyISAM
+
+======================================================
+安装percona
+
+1. 安装软件包
+yum安装自动解决依赖
+percona-xtrabackup-24-2.4.7-1.el7X86_64. rpm
+[root@cenos50 mysql]# rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm
+[root@cenos50 mysql]# yum -y install percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm
+
+2. 查看安装信息
+查看安装列表
+[root@host62-]# rpm -ql percona-xtrabackup-24
+/usr/bin/innobackupex  #备份inob、xtra、myisam引擎的表
+/usr/bin/xbcloud
+/usr/bin/xbcloud_osen
+/usr/ bin/xbcrypt
+/usr/bin/ xbstream
+/sr/ bin/xtrabackup  #备份innodb、xtra引擎的表
+查看命令帮助
+[root@host62 ]# rpm -ql percona-xtrabackup-24
+root@host62~]# innobackupex-help #常用选项
+root@host62~]# man innobackupex  #备份佯洋细帮助
+
+========================================================
+innobackupex命令
+
+常用选项              含义
+--host           主机名
+--user           用户名
+--port           端口号
+--password       密码
+--databases      数据库名
+--no-timestamp   不用日期命名备份文件存储的子目录名
+
+--databases="库名    #1个库
+--databases="库1库2  #多个库
+--databases=“库1表   #1张表
+
+  常用选项                              含义
+--redo-only                   日志合并
+--apply-log                   准备恢复数据
+--copy-back                   拷贝数据
+--incrementa 目录名               增量备份
+--incremental-basedir=目录名    增量备份时，指定上一次备份数据
+--ncremental-dir=目录名          准备恢复数据时，指定增量备份数据存储的目录名
+--export                      导出表信息
+--import                      导入表空间
+
+===================================================================
+innobackupex备份与恢复
+
+mysql> show create table day3.user\G; #显示创建表的命令
+mysql> show engines;                  #显示当前数据库支持的搜索引擎
+
+完全备份与恢复
+
+命令格式
+1. 完全备份
+]# innobackupex --user用户名 --password 密码  备份目录名
+]# innobackupex --user用户名 --password 密码  备份目录名 --no-timestamp
+例:
+应用示例：备份所有数据到/allbak目录
+[root@cenos50 ~]# innobackupex --user root --password 123qq...A /allbak                #以系统日期命名备份文件存储的子目录名
+[root@cenos50 ~]# innobackupex --user root --password 123qq...A /allbak --no-timestamp #不以系统日期命名备份文件存储的子目录名
+
+2. 完全恢复
+使用备份文件恢复数据
+]# innobackupex --appy-log 目录名  #准备恢复数据
+]# innobackupex --opy-back 目录名  #恢复数据
+例:
+[root@cenos50 ~]# scp -r /allbak/ root@192.168.4.51:/root/
+[root@cenos51 ~]# systemctl stop mysqld #
+[root@cenos51 ~]# rm -rf /var/lib/mysql/*                #恢复时要求目录为空
+[root@cenos51 ~]# innobackupex --apply-log /root/allbak  #准备恢复数据
+[root@cenos51 ~]# innobackupex --copy-back /root/allbak  #恢复数据
+[root@cenos51 ~]# chown -R mysql:mysql /var/lib/mysql    #设置所有者所属组
+[root@cenos51 ~]# systemctl restart mysqld               #重启服务
+
+===================================================================================================
+增量备份与恢复
+
+1. 增量备份
+
+命令格式
+增量备份时，必须先有一次备份通常是完全备份
+周一完全备份，周二~周日增量备份
+]# innobackupex --user root --password 密码 /fullbak --no-timestamp  #完全备份
+]# innobackupex --user用户名 password 密码 --incremental 增量目录 --incremental-basedin=目录名 --no-timestamp
+]# innobackupex --user root --password 密码 incremental /new1dir --incremental-basedi=/fullbak 
+   --no-timestamp #增量备份
+]# innobackupex- user root- password 密码 --incremental /new2dir --incremental-basedir=/new1dir 
+   --no-timestamp  #增量备份
+例:
+[root@cenos50 ~]# innobackupex --user root --password 123qq...A /fullall --no-timestamp #选备份出所有数据,用来比较
+[root@cenos50 ~]# ls /fullall #列出刚备份的所有内容
+[root@cenos50 ~]# cat /fullall/xtrabackup_checkpoints
+backup_type = full-backuped
+from_lsn = 0
+to_lsn = 3688033
+last_lsn = 3688042
+compact = 0
+recover_binlog_info = 0
+mysql> insert into day3.user(name) values("aaaaaa"); #插入数据
+[root@cenos50 ~]# innobackupex --user root --password 123qq...A --incremental /new1dir --incremental-basedir=/fullall --no-timestamp #增量备份
+[root@cenos50 ~]# ls /new1dir  #列出刚备份的所有内容
+[root@cenos50 ~]# cat  /new1dir/xtrabackup_checkpoints
+backup_type = incremental
+from_lsn = 3688033
+to_lsn = 3689699
+last_lsn = 3689708
+compact = 0
+recover_binlog_info = 0
+mysql> insert into day3.user(name) values("zhaiyanqun"); #插入数据
+[root@cenos50 ~]# innobackupex --user root --password 123qq...A --incremental /new2dir --incremental-basedir=/new1dir --no-timestamp #插入数据
+[root@cenos50 ~]# ls /new2dir  #列出刚备份的所有内容
+[root@cenos50 ~]# cat /new2dir/xtrabackup_checkpoints
+backup_type = incremental
+from_lsn = 3689699
+to_lsn = 3691743
+last_lsn = 3691752
+compact = 0
+recover_binlog_info = 0
+
+
+2. 增量恢复
+
+]# systemctl stop mysqld 
+]# rm -rf /var/lib/mysql/*
+]# innobackupex --apply-log --redo-only 完全备份目录  #完全恢复
+]# innobackupex --apply-log --redo-only 完全备份目录 --incremental-dir=增量备份目录 #准备恢复数据
+]# innobackupex --copy-back 完全备份目录   #拷贝文件,恢复数据
+]# chown -R mysql:mysql /var/lib/mysql #设置所有者所属组
+例:
+[root@cenos50 ~]# innobackupex --user root --password 123qq...A /fullall --no-timestamp #完全备份,如果有完全备份文件可以不做此步
+[root@cenos50 ~]# scp -r /fullall/ /new1dir/ root@192.168.4.51:/ #拷贝完全备份文件和增量备份到51主机
+[root@cenos51 ~]# systemctl stop mysqld
+[root@cenos51 ~]# rm -rf /var/lib/mysql/*
+[root@cenos51 ~]# innobackupex --apply-log --redo-only /fullall  #完全恢复,/fullall是完全备份文件
+[root@cenos51 ~]# innobackupex --apply-log --redo-only /fullall --incremental-dir=/new1dir #恢复增量
+[root@cenos51 ~]# innobackupex --copy-back /fullall   #拷贝文件
+[root@cenos51 ~]# chown -R mysql:mysql /var/lib/mysql #设置所有者所属组
+[root@cenos51 ~]# systemctl restart mysqld            #重启服务
+
+==============================================================================================
+恢复单张表
+
+1. 操作步骤
+具体操作如下:
+  删除表空间
+  导出表信息
+  拷贝表信息文件到数据库目录下
+  修改表信息文件的所有者及组用户为mysq
+  导入表空间
+  删除数据库目录下的表信息文件
+  查看表记录
+
+2. 相关命令
+mysql> alter table 库名.表名 discard tablespace；     #删除表空间
+]# innobackupex --apply-log --export 数据完全备份目录  #导出表信息
+]# cp 数据完全备份目录/据库名目录/表名.{ibd,cfg,exp} 数据库目录/库名目录/  #拷贝表信息文件
+]# chown mysql:mysql 数据库目录/库名                 #修改所有者/组
+mysql> alter table 库名.表名 import tablespace； #导入表空间
+mysql> select * from 库名.表名；                      #查看表记录
+]# rm -rf 数据库目录/库名/表名.{cfg,exp}              #删除表信息文件
+例:
+mysql> delete from day3.user;                                #误删除数据操作
+mysql> alter table day3.user discard tablespace;             #删除表空间
+[root@cenos50 ~]# innobackupex --apply-log --export /fullall #导出表信息
+[root@cenos50 ~]# cp /fullall/day3/user.{ibd,cfg,exp} /var/lib/mysql/day3 #拷贝表信息文件
+[root@cenos50 ~]# chown -R mysql:mysql /var/lib/mysql/      #修改所有者/组
+mysql> alter table day3.user import tablespace;             #导入表空间
+mysql> select * from day3.user;                             #查看表记录
+[root@cenos50 ~]# rm -rf /var/lib/mysql/day3/user.{cfg,exp} #删除表信息文件
+
+
+
+
+
