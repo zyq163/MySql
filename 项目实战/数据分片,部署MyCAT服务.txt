@@ -1,0 +1,433 @@
+分库分表
+
+什么是分库分表
+   将存放在一台数据库服务器中的数据，按照特定方式进行拆分，
+   分散存放到多台数据库服务器中,以达到分散单台服务器负载的效果
+
+垂直分割
+纵向切分
+   将单个数据库的多个表按业务类型分类，分散存储到不同的数据库
+Application: 客户 存款 贷款 支付
+
+水平分割
+横向切分
+   按照表中指定字段的分片规则，将表记录按行切分,分散存储到多个数据库中。
+
+MyCAT介绍
+软件介绍
+mycat是基于Java的分布式数据库系统中间件，为高并发环境的分布式存储提供解决方案
+   适合数据大量写入的存储需求
+   支持 MySQL、 Oracle、 Sqlserver、 Mongodb等
+   提供数据读写分离服务
+   提供数据分片服务
+   基于阿里巴巴Cobar进行研发的开源软件
+
+分片规则
+mycat支持提供10种分片规则
+  1.枚举法去sharding-by-intfile
+  2.固定分片rule1
+  3.范围约定 auto-sharding-long
+  4.求模法mod-long
+  5.日期列分区法 sharding-by-date
+  6.通配取模sharding-by-pattern
+ 7.ASCI码求模通配 sharding-by-prefixpattern
+  8.编程指定sharding-by-substring
+  9.字符串拆分hash解析 sharding-by-stringhash
+  10.一致性 hash sharding-by-murmur
+
+工作过程
+
+当mycat收到一个SQL命令时
+  ①解析SQL命令涉及到的表
+  ②然后看对表的配置，如果有分片规则，则获取SQL命令里分片字段的值，并匹配分片函数，获得分片列表
+  ③然后将SQ命令发往对应的分片服务器去执行
+  ④最后收集和处理所有分片结果数据，并返回到客户端
+
+部署 MyCAT服务
+具体要求如下
+  1)数据库主机192.168.4.53使用db1库存储数据
+  2)数据库主机192.168.4.54使用db2库存储数据
+  3)数据库主机1921684.55使用db3库存储数据
+  4)主机192.168456运行myat服务，逻辑库名称为
+  TESTDB，连接用户名为admin，密码123456
+  5)在主机192.168.4.50访问测试配置
+
+IP规划
+主机名        角色         数据库       IP地址
+client50   客户端         无        192.1684.50/24
+mycat56    分片服务器     无        192.1684.56/24
+mysq53     数据库服务器   db1     192.168.4.53/24
+mysq|54    数据库服务器   db2     192.1684.54/24
+mysq55     数据库服务器   db3     192.1684.55/24
+
+
+1. 部署 MyCAT服务
+安装软件
+安装JDK
+系统自带的即可
+[root@Mycat56-]# rpm -qa | grep -i jdk
+java-18.0-openjdk-1.8.0.65-3.b17.e7x8664
+例:
+[root@cen056 ~]# rpm -qa | grep -i jdk  #查看安装的包
+[root@cen056 ~]# rpm -e  --nodeps java-1.8.0-openjdk-headless-1.8.0.161-2.b14.el7.i686 #忽略依赖关系
+[root@cen056 ~]# yum list | grep -i jdk
+[root@cen056 conf]# yum -y install java-1.8.0-openjdk.x86_64
+[root@cen056 conf]# ps -C java #查看Java进程
+  PID TTY          TIME CMD
+ 1689 ?        00:00:02 java
+
+2. 安装 mycat服务软件包
+[root@cenos50 mysql]# scp Mycat-server-1.6-RELEASE-20161028204710-linux.tar.gz root@192.168.4.56:/
+[root@Mycat56 ]tar -zxvf /Mycat-server-1.6-RELEASE-20161028204710-inux.tar.gz  #兔安装，解压即可使用
+[root@Mycat]# mv mycat/ /usr/local/
+[root@Mycat56 -]# ls /usr/local/mycat/
+bin catlet conf lib logs version. txt
+例:
+[root@cen056 ~]# tar -zxvf /Mycat-server-1.6-RELEASE-20161028204710-linux.tar.gz  #解压包
+[root@cen056 ~]# mv mycat /usr/local/  #解压后文件移动到/usr/local/目录下
+[root@cen056 ~]# ls /usr/local/mycat   
+bin  catlet  conf  lib  logs  version.txt
+
+目录结构
+ls /usr/local/mycat/
+bin          #mycat命令
+catlet       #扩展功能
+conf         #配置文件
+lib          #mycat使用的jar包
+logs         #mycat启动日志和运行日志
+wrappel.log  #mycat服务启动日志
+mycat.log    #记录SQL脚本执行后的报错内容
+
+重要配置文件说明
+server.xml  #设置连接账号及逻辑
+schema.xml  #配置数据分片
+rule.xml    #分片规则
+*.txt       #函数调月文件
+
+创建连接用户
+/usr/local/mycat/conf/server.xml
+定义客户端连接mycat服务的用户
+<user name="用户名>  #连mycat服务用户名
+   < property name=" password">密码</ property> #用户密码
+   < property name="schemas">库名</property>     #逻辑库
+</user>
+例:
+[root@cen056 conf]# vim /usr/local/mycat/conf/server.xml
+<user name="admin" ">
+   <property name="password">123456</property>
+   <property name="schemas">TESTDB</property>
+   <property name=“readonly">true</property> #只读权限
+</user>
+[root@cen056 conf]# sed -i '56,77d' /usr/local/mycat/conf/schema.xml
+[root@cen056 conf]# sed -i '39,42d' /usr/local/mycat/conf/schema.xml
+[root@cen056 conf]# sed -i '16,18d' /usr/local/mycat/conf/schema.xml
+
+2. 定义分片的表
+<schema>...</schema>  #定义分片信息
+name  #逻辑表
+dataNode #指定数据节点名
+rule  #指定使用的分片规则
+type=global #数据不分片存储
+<schema name="TESTDB ......>
+   <table name="hotnews"primarykey=ID" dataNode=dn1,dn2,dn3" rule="mod-long" />
+   <table name="company" primarykey="ID" type="global" dataNode="dn1,dn2,dn3" />
+</schema>
+
+
+3. 定义数据节点
+<dataNode选项=值,……/>定义数据节点
+name    #数据节点名
+datahost #数据库服务器主机名
+database #数据库名
+<dataNode name="dn1" dataHost="mysql53" database="db1"/>
+<dataNode name="dn2" dataHost="mysql54" database="db2"/>
+<dataNode name="dn3" dataHost="mysql55" database="db3"/>
+例:
+[root@cen056 ~]# vim /usr/local/mycat/conf/schema.xml
+<mycat:schema xmlns:mycat="http://io.mycat/">
+.........
+     <dataNode name="dn1" dataHost="localhost53" database="db1" />
+     <dataNode name="dn2" dataHost="localhost54" database="db2" />
+     <dataNode name="dn3" dataHost="localhost55" database="db3" />
+........
+</mycat:schema>
+
+
+4. 定义数据库服务器地址及端口
+<datahost 选项=值,...>......</datahost>  #服务器主机名
+name      #主机名(与datahost对应的主机名)
+host      #主机名(与IP地址对应的主机名)
+url       #数据库服务器p地址及端口号
+user      #数据库授权用户
+password  #授权用户密码
+<dataHost name=“localhost53"......>
+   <heartbeat>select user()</heartbeat>
+     <writeHost host="hostM1" url="192.168.4.53:3306"user=“用户名” password=“密码">
+   </writeHost>
+</dataHost>
+例:
+[root@cen056 ~]# vim /usr/local/mycat/conf/schema.xml
+<mycat:schema xmlns:mycat="http://io.mycat/">
+..........
+        <dataNode name="dn1" dataHost="localhost53" database="db1" />
+        <dataNode name="dn2" dataHost="localhost54" database="db2" />
+        <dataNode name="dn3" dataHost="localhost55" database="db3" />
+
+          #主机53
+        <dataHost name="localhost53" maxCon="1000" minCon="10" balance="0"
+                          writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+                <heartbeat>select user()</heartbeat>
+                <writeHost host="hostM53" url="192.168.4.53:3306" user="adminplj"  password="123qq...A">
+                </writeHost>
+        </dataHost>
+           #主机54
+        <dataHost name="localhost54" maxCon="1000" minCon="10" balance="0"
+                          writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+                <heartbeat>select user()</heartbeat>
+                <writeHost host="hostM54" url="192.168.4.54:3306" user="adminplj"  password="123qq...A">
+                </writeHost>
+        </dataHost>
+          #主机55
+        <dataHost name="localhost55" maxCon="1000" minCon="10" balance="0"
+                          writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+                <heartbeat>select user()</heartbeat>
+                <writeHost host="hostM55" url="192.168.4.55:3306" user="amdinplj"  password="123qq...A">
+                </writeHost>
+        </dataHost>
+</mycat:schema>
+
+
+5. 配置数据库服务器
+根据分片配置做相应的设置
+  添加授权用户
+  刨建存储数据数据库db1、db2、db3
+mysql> create database 数据库名;
+mysql> grant all on *.* to 用户名@"%" identified by “密码"；  #添加授权用户
+例:
+[root@cenos53 ~]# mysql -u root -p123qq...A3 -e "create database db1"  #在命令行创建库
+[root@cenos54 ~]# mysql -u root -p123qq...A4 -e "create database db2"
+[root@cenos55 ~]# mysql -u root -p123qq...A5 -e "create database db3"
+mysql> grant all on *.* to adminplj@"%" identified by "123qq...A";  #在53主机操作
+mysql> grant all on *.* to adminplj@"%" identified by "123qq...A";  #在54主机操作
+mysql> grant all on *.* to adminplj@"%" identified by "123qq...A";  #在55主机操作
+
+
+6. 启动服务
+1#cd /usr/local/mycat/bin/
+1#./mycat --help
+Usage: ./mycat { console | start | stop | restart | status | dump }
+[root@host56 -]#/usr/local/mycat/bin/mycat start
+Starting Mycat-server
+Removed stale pid file: /usr/local/mycat/logs/mycat pid
+[root @host56-]# netstat -utnlp | grep :8066
+tcp600∷8066  LISTEN 8906/java
+例:
+[root@cen056 ~]# /usr/local/mycat/bin/mycat start  #启动服务
+[root@cen056 ~]# netstat  -upntl | grep :8066  #查看端口
+tcp6       0      0 :::8066  
+
+=======================================================================================
+分片规则
+
+连接分片服务器存储数据
+ 具体要求如下
+  1)连接分片服务器
+  2)建表
+  3)存储数据
+  4)查看数据是否分片存储
+
+1. sharding-by-intfile
+枚举法: 字段值必须在列举范围内选择
+
+<table name="employee" primaryKey="ID" dataNode=dnl,dn2,dn3" rule="sharding-by-intfile" />
+<tableRule name="sharding-by-intfile>
+    <rule>
+        <columns>sharding_id</columns>
+        <agorithm>hash-int</algorithm>
+    </rule>
+</tableRule>
+例:
+[root@cen056 ~]# vim /usr/local/mycat/conf/schema.xml
+<schema name="TESTDB" checkSQLschema="false" sqlMaxLimit="100">
+.......
+<table name="employee" primaryKey="ID" dataNode="dn1,dn2,dn3" rule="sharding-by-intfile" />
+.......
+ </schema>
+[root@cen056 ~]# vim /usr/local/mycat/conf/rule.xml
+<tableRule name="sharding-by-intfile>
+    <rule>
+        <columns>sharding_id</columns>
+        <agorithm>hash-int</algorithm>
+    </rule>
+</tableRule>
+
+2)sharding-by-intfile
+枚举法: 字段值必须在列举范围内选柽
+<function name="hash-int" class="io.mycat.route.function.PartitionByFileMap">
+   <property name="mapFile">partition-hash-int.txt </property>
+</function>
+]#vim /usr/local/mycat/conf/partition-hash-int.txt
+10000=0  #数据存储到dn库里
+10010=1   #数据存储到dn2库里
+10020=2  #数据存储到dn3库里
+例:
+[root@cen056 ~]# vim /usr/local/mycat/conf/partition-hash-int.txt 
+10000=0  #数据存储到dn库里
+10010=1  #数据存储到dn2库里
+10020=2  #数据存储到dn3库里
+
+3).客户端连接
+客户端连接分片服务器存取数据。
+  连接
+  选择库
+  建表
+  插入记录
+]#myql -h 192.168.4.56 -P8066 uroot -p123456
+mysql> show databases;
+mysql> use TESTDB;
+mysql> show tables;
+mysql> desc employee;
+ERROR 1146 (42502): Table 'db3 employee doesn't exist
+mysql> exit
+例:
+[root@cenos50 ~]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+mysql> show databases;
++----------+
+| DATABASE |
++----------+
+| TESTDB   |
++----------+
+mysql> use TESTDB; #切换到TESTDB库
+mysql> create table  employee( ID int primary key , sharding_id int, name char(15) , age  int ); #创建employee表
+mysql> desc TESTDB.employee; #在50主机查询
+mysql> use TESTDB;  #在50主机切换
+mysql> insert into employee(ID,sharding_id,name,age) values(2,10000,"zhai",18),(3,10010,"yan",19),(4,10020,"quan",20); #在50主机插入
+mysql> select * from db1.employee;  #在53主机查询测试
+mysql> select * from db2.employee;  #在54主机查询测试
+mysql> select * from db3.employee;  #在55主机查询测试
+
+
+2. mod-long
+求模法: 根据字段值与设定的数字求模结果存储数据
+]# vim /usr/local/mycat/conf/schema.xml
+<table name="hotnews" primarykey="ID" autoIncrement="true dataNode="dn1,dn2,dn3" rule="mod-long" />
+
+]# vim /usr/local/mycat/conf/rule.xml
+<tableRule name="mod-long">
+   <rule>
+       <columns>id</columns>
+       <algorithm>mod-long</algorithm>
+   </rule>
+</tableRule>
+
+<function name="mod-long" class="io.mycat.route.function.PartitionByMod">
+<!-- how many data nodes->
+<property name="count">3</property>
+</function>
+例:
+[root@cen056 ~]# vim /usr/local/mycat/conf/schema.xml
+<mycat:schema xmlns:mycat="http://io.mycat/">
+<schema name="TESTDB" checkSQLschema="false" sqlMaxLimit="100">
+...
+    <table name="hotnews"  dataNode="dn1,dn2,dn3" rule="mod-long" />
+</schema>
+...
+</mycat:schema>
+
+[root@cen056 ~]# vim /usr/local/mycat/conf/rule.xml
+<mycat:rule xmlns:mycat="http://io.mycat/">
+...
+     <tableRule name="mod-long">
+                <rule>
+                        <columns>num</columns>
+                        <algorithm>mod-long</algorithm>
+                </rule>
+        </tableRule>
+
+        <function name="mod-long" class="io.mycat.route.function.PartitionByMod">
+                <!-- how many data nodes -->
+                <property name="count">3</property>
+        </function>
+...
+</mycat:rule>
+客户端测试
+[root@cenos50 ~]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+mysql> use TESTDB;                                                       #切换到TESTDB库
+mysql> create table hotnews(num int,title char(50),comment char(20));    #创建表hotnews
+mysql> desc TESTDB.hotnews;                                              #查看表结构
+mysql> insert into hotnews(num,title,comment) values(1,"fdsfds","eewr"); #插入数据
+
+
+存储数据
+建表: 根据分片规则和对应算法创建表结构
+[root@cenos50 ~]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+mysal> use TESTDB;
+mysql> create table employee(
+    -> ID int primary key auto_increment,
+    -> sharding_id int,
+    -> name char(15)
+    -> sex enum("boy"," girl"),
+    -> pay float(7, 2));
+
+mysql> create table hotnews(
+    -> ID int primary key auto_increment,
+    -> id int,
+    -> title char(50),
+    -> comment varchar(200));
+
+存储数据
+存储数据时必须指定字段名列表
+[root@cenos50 ~]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+mysql> insert into employee(sharding_id, name, sex, pay) values(10000,"bob""boy",28000);
+mysql> insert into employee(sharding_id, name, sex, pay) values(10010.jm","boy",28000);
+mysql> insert into employee(sharding_ld, name, sex, pay) values(10020,"ucy"boy",28000);
+mysql> insert into hotnews(id, title, comment) values(10, " linux","create web site");
+mysql> insert into hotnews(id, title, comment values(7," php", "web page");
+mysql> insert into hotnews(id, title, comment values(100, java","game script");
+
+====================================================================================
+添加新库新表
+
+服务器配置
+1).添加新库
+   修改 server.xml文件
+<user name="root">
+   <property name="password">123456</property>
+   <property name="schemas">TESTDB,BBSDB</property
+</user>
+例:
+[root@cen056 ~]# vim /usr/local/mycat/conf/server.xml
+<mycat:server xmlns:mycat="http://io.mycat/">
+  <user name="root">
+        <property name="password">123456</property>
+        <property name="schemas">TESTDB,BBSDB</property>
+  </user>
+</mycat:server>
+
+2).添加新表
+修改schema.xml
+<schema name="BBSDB" checkSQLschema"false"sqlMaxLimit="100">﻿
+   <table name="student" primarykey="ID" dataNode="dnl,dn2,dn3" rule="sharding-by-intfile"/>
+   <table name="company" primaryKey="ID" type="globl" dataNode="dn1,dn2, dn3" />
+</schema>
+例:
+[root@cen056 ~]# vim /usr/local/mycat/conf/schema.xml
+<mycat:schema xmlns:mycat="http://io.mycat/">
+        <schema name="BBSDB" checkSQLschema="false" sqlMaxLimit="100">
+                  <table name="company" primaryKey="ID" type="global" dataNode="dn1,dn2,dn3" />
+                  <table name="employee" primaryKey="ID" dataNode="dn1,dn2,dn3" rule="sharding-by-intfile" />
+        </schema>
+</mycat:schema>
+
+3).客户端访问
+[root@cen056 ~]# mysql -h192.168.4.56 -P8066 -uroot -p123456  #root用户名和密码在server.xml设置(56主机)
+mysql> use BBSDB;  #切换到BBSDB库
+mysql> create table comany(ID int primary key,name char(50),addr char(50)); #创建comany表
+mysql> show tables; 
+mysql> insert into BBSDB.company(ID,name,addr) values(1,"zhai","gz"); #插入company表记录
+mysql> insert into company(ID,name,addr) values(2,"zhai2","zj");      #插入company表记录
+mysql> desc hotnews                                                   #查看表结构
+
+
+
+
