@@ -1,0 +1,39 @@
+
+astr = 'hello'
+alist = [10, 20, 30]
+atuple = ('bob', 'tom', 'alice')
+adict = {'name': 'john', 'age': 23}
+
+for ch in astr:
+    print(ch)
+
+for i in alist:
+    print(i)
+
+for name in atuple:
+    print(name)
+
+for key in adict:
+    print('%s: %s' % (key, adict[key]))
+
+
+================================================
+[root@zyq ~]# python3 /root/PycharmProjects/untitled/hello.py
+h
+e
+l
+l
+o
+10
+20
+30
+bob
+tom
+alice
+name: john
+age: 23
+
+
+不作为不够强，头顶会悬着一把剑，那怕自己走着独木桥小路不若是生非，当劣势发现你身上有想要的东西时，等来的是
+被攻击被欺负。不能被欺负被打到麻了才知道疼，要让别人知道自己不好惹。
+
